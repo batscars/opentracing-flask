@@ -7,7 +7,7 @@ setup(
     keywords=("opentracing", "python", "flask"),
     license="MIT License",
     url="https://github.com/darinautilus/opentracing-flask",
-    author="zhangbin",
+    author="BattleScars",
     author_email="battlescars@qq.com",
     packages = ["opentracing_flask"],
     include_package_data = True,
