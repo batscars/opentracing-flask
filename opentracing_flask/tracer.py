@@ -2,6 +2,8 @@
 from jaeger_client import Config
 from flask_opentracing import FlaskTracing
 import logging
+from opentracing import global_tracer
+from opentracing_instrumentation import get_current_span
 
 
 def create_tracer(service_name, flask_app, jaeger_host="localhost", sample_type="const", sample_param=1):
@@ -22,3 +24,11 @@ def create_tracer(service_name, flask_app, jaeger_host="localhost", sample_type=
     tracer = FlaskTracing(jaeger_tracer, True, flask_app)
     logging.info("Create trace {} on flask_app {} as service_name {}".format(tracer, flask_app, service_name))
     return tracer
+
+
+def get_global_tracer():
+    return global_tracer()
+
+
+def get_global_span():
+    return get_current_span()

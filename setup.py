@@ -3,7 +3,7 @@ from setuptools import setup
 
 setup(
     name="opentracing_flask",
-    version="0.0.1",
+    version="0.0.2",
     keywords=("opentracing", "python", "flask"),
     license="MIT License",
     url="https://github.com/darinautilus/opentracing-flask",
