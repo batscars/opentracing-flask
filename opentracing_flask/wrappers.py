@@ -15,16 +15,16 @@ def func_call_wrapper(func):
     def _wrappper(*args, **kwargs):
         current_tracer = global_tracer()
         current_span = get_current_span()
-        logging.info("Tracing function: tracer:{}, span:{}, name:{}".format(current_tracer,
-                                                                            current_span, func.__name__))
-        span = kwargs.get("span")
-        if span:
-            with global_tracer().scope_manager.activate(span, finish_on_close=False):
-                with current_tracer.start_active_span(func.__name__, child_of=span):
+        parent_greenlet_span = kwargs.pop("parent_greenlet_span", None)
+        if parent_greenlet_span:
+            with global_tracer().scope_manager.activate(parent_greenlet_span, finish_on_close=False):
+                with current_tracer.start_active_span(func.__name__, child_of=parent_greenlet_span):
                     result = func(*args, **kwargs)
         else:
-            with current_tracer.start_active_span(func.__name__, child_of=get_current_span()):
+            with current_tracer.start_active_span(func.__name__, child_of=current_span):
                 result = func(*args, **kwargs)
+        logging.debug("Tracing function: tracer:{}, span:{}, name:{}".format(
+            current_tracer, parent_greenlet_span if not current_span else current_span, func.__name__))
         return result
 
     return _wrappper
@@ -33,12 +33,20 @@ def func_call_wrapper(func):
 def http_call_wrapper(func):
     @wraps(func)
     def _wrappper(*args, **kwargs):
-        http_url = kwargs.get("url", args[1])
-        http_method = kwargs.get("method", args[0])
+        if len(args) == 0:
+            http_url = kwargs.get("url")
+            http_method = kwargs.get("method")
+        elif len(args) == 1:
+            http_url = kwargs.get("url")
+            http_method = args[0]
+        elif len(args) == 2:
+            http_url = args[1]
+            http_method = args[0]
+        else:
+            http_url = ""
+            http_method = "POST"
         current_tracer = global_tracer()
         current_span = get_current_span()
-        logging.info("Tracing request: tracer:{}, span:{}, http_url:{}, http_method:{}".format(
-            current_tracer, current_span, http_url, http_method))
 
         def start_child_span(parent_span):
             with current_tracer.start_active_span(http_url.split("/")[-1], child_of=parent_span) as scope:
@@ -60,12 +68,14 @@ def http_call_wrapper(func):
                     scope.span.set_tag("http.status_code", result.status_code)
             return result
 
-        span = kwargs.get("span")
-        if span:
-            with current_tracer.scope_manager.activate(span, finish_on_close=False):
-                request_result = start_child_span(parent_span=span)
+        parent_greenlet_span = kwargs.pop("parent_greenlet_span", None)
+        if parent_greenlet_span:
+            with current_tracer.scope_manager.activate(parent_greenlet_span, finish_on_close=False):
+                request_result = start_child_span(parent_span=parent_greenlet_span)
         else:
             request_result = start_child_span(parent_span=current_span)
+        logging.debug("Tracing request: tracer:{}, span:{}, http_url:{}, http_method:{}".format(
+            current_tracer, parent_greenlet_span if not current_span else current_span, http_url, http_method))
         return request_result
 
     return _wrappper
